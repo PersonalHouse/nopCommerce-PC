@@ -1,0 +1,11 @@
+﻿{
+  "Group": "Misc",
+  "FriendlyName": "Personal Cloud",
+  "SystemName": "Misc.PersonalCloud",
+  "Version": "1.0",
+  "SupportedVersions": [ "4.30" ],
+  "Author": "",
+  "DisplayOrder": 1,
+  "FileName": "Nop.Plugin.Misc.PersonalCloud.dll",
+  "Description": "This plugin enables Personal Cloud support"
+}
