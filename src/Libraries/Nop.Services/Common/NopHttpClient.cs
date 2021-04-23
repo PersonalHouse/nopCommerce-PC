@@ -86,8 +86,9 @@ namespace Nop.Services.Common
         /// Get official news RSS
         /// </summary>
         /// <returns>The asynchronous task whose result contains news RSS feed</returns>
-        public virtual async Task<RssFeed> GetNewsRssAsync()
+        public virtual Task<RssFeed> GetNewsRssAsync()
         {
+#if false
             //prepare URL to request
             var language = _languageService.GetTwoLetterIsoLanguageName(_workContext.WorkingLanguage);
             var url = string.Format(NopCommonDefaults.NopNewsRssPath,
@@ -100,6 +101,8 @@ namespace Nop.Services.Common
             //get news feed
             using var stream = await _httpClient.GetStreamAsync(url);
             return await RssFeed.LoadAsync(stream);
+#endif
+            return Task.FromResult<RssFeed>(null);
         }
 
         /// <summary>
