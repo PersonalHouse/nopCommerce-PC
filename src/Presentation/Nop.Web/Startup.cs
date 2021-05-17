@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Nop.Core.Configuration;
 using Nop.Core.Infrastructure;
 using Nop.Web.Framework.Infrastructure.Extensions;
@@ -40,6 +42,7 @@ namespace Nop.Web
         public void ConfigureServices(IServiceCollection services)
         {
             (_engine, _nopConfig) = services.ConfigureApplicationServices(_configuration, _webHostEnvironment);
+            services.AddSingleton<IWebServerData>(new WebServerData());
         }
 
         public void ConfigureContainer(ContainerBuilder builder)
@@ -51,11 +54,17 @@ namespace Nop.Web
         /// Configure the application HTTP request pipeline
         /// </summary>
         /// <param name="application">Builder for configuring an application's request pipeline</param>
-        public void Configure(IApplicationBuilder application)
+        public void Configure(IApplicationBuilder application, IHostApplicationLifetime applicationLifetime, ILogger<Startup> logger)
         {
+            applicationLifetime.ApplicationStopped.Register(() => logger.LogInformation("Web Server Stopped."));
+
             application.ConfigureRequestPipeline();
 
             application.StartEngine();
+
+            var webServerData = application.ApplicationServices.GetRequiredService<IWebServerData>();
+            webServerData.ServiceProvider = application.ApplicationServices;
+            webServerData.MainWebStarted.SetResult(true);
         }
     }
 }
