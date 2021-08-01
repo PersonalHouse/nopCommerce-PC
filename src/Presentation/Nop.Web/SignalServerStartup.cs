@@ -1,11 +1,17 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Nop.Services.Customers;
-using Nop.Services.Plugins;
+using Microsoft.OpenApi.Models;
+using SignalServer;
+using SignalServer.Core;
+using SignalServer.Devices;
+using SignalServer.Users;
 
 namespace Nop.Web
 {
@@ -13,11 +19,32 @@ namespace Nop.Web
     {
         private IWebServerData _webServerData;
 
-        public void ConfigureServices(IServiceCollection services)
+        public SignalServerStartup(IConfiguration configuration)
         {
+            Configuration = configuration;
         }
 
-        public void Configure(IApplicationBuilder app, IHostApplicationLifetime applicationLifetime, ILogger<SignalServerStartup> logger)
+        public IConfiguration Configuration { get; }
+
+        public void ConfigureServices(IServiceCollection services)
+        {
+            services.Configure<SignalServerSettings>(Configuration.GetSection("SignalServer"));
+            services.AddSingleton<GlobalData>();
+            services.AddSingleton<ISignalServerOptions>(x => x.GetRequiredService<GlobalData>());
+
+            services.AddSingleton((x) => _webServerData.ServiceProvider.GetRequiredService<IUserManager>());
+            services.AddSingleton((x) => _webServerData.ServiceProvider.GetRequiredService<IDeviceManager>());
+
+            services.AddSignalServerServices();
+
+            services.AddControllers();
+            services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Signal Server", Version = "v1" });
+            });
+        }
+
+        public void Configure(IApplicationBuilder app, IHostApplicationLifetime applicationLifetime, IWebHostEnvironment env, IServiceProvider serviceProvider, ILogger<SignalServerStartup> logger)
         {
             _webServerData = app.ApplicationServices.GetRequiredService<IWebServerData>();
 
@@ -27,33 +54,26 @@ namespace Nop.Web
                 _webServerData.SignalServerStopped.SetResult(true);
             });
 
-            app.Run(async (context) =>
-            {
-                if (_webServerData.ServiceProvider != null)
-                {
-                    var pluginService = _webServerData.ServiceProvider.GetRequiredService<IPluginService>();
-                    var plugin = pluginService.GetPluginDescriptorBySystemName<IPlugin>("Misc.PersonalCloud", LoadPluginsMode.InstalledOnly);
-                    if (plugin != null)
-                    {
-                        await context.Response.WriteAsync("The PersonalCloud Plugin is installed.\r\n\r\n");
-                    }
-                    else
-                    {
-                        await context.Response.WriteAsync("The PersonalCloud Plugin is NOT installed.\r\n\r\n");
-                    }
+            GlobalData globalData = serviceProvider.GetRequiredService<GlobalData>();
 
-                    // Nop Services are accessible
-                    var customerService = _webServerData.ServiceProvider.GetRequiredService<ICustomerService>();
-                    foreach(var item in customerService.GetAllCustomers())
-                    {
-                        var name = item.Username ?? item.Email;
-                        if (!string.IsNullOrWhiteSpace(name))
-                        {
-                            await context.Response.WriteAsync(name + "\r\n");
-                        }
-                    }
-                }
-            });
+            var sb = new StringBuilder();
+            sb.AppendLine("Load Signing Key successfully.");
+            sb.AppendLine();
+            sb.Append(globalData.SigningKey.ToString());
+            logger?.LogInformation(sb.ToString());
+
+            if (env.IsDevelopment())
+            {
+                app.UseDeveloperExceptionPage();
+                app.UseSwagger();
+                app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Signal Server v1"));
+            }
+
+            app.UseHttpsRedirection();
+
+            app.UseRouting();
+
+            app.UseSignalServer();
         }
     }
 }

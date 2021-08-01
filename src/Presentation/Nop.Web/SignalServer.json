@@ -1,0 +1,34 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft": "Warning",
+      "Microsoft.Hosting.Lifetime": "Information"
+    }
+  },
+  "AllowedHosts": "*",
+  "SignalServer": {
+    "SigningKey": {
+      "Subject": "auth.personal.house",
+      "Store": "My",
+      "Location": "CurrentUser",
+      "AllowInvalid": false
+    },
+    "AccessTokenLifetime": 86400
+  },
+  "Kestrel": {
+    "Endpoints": {
+      "Https": {
+        "Url": "https://*"
+      }
+    },
+    "Certificates": {
+      "Default": {
+        "Subject": "auth.personal.house",
+        "Store": "My",
+        "Location": "CurrentUser",
+        "AllowInvalid": false
+      }
+    }
+  }
+}

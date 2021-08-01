@@ -1,7 +1,9 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Autofac.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -18,8 +20,17 @@ namespace Nop.Web
             var mainWebTask = mainWebHost.RunAsync();
             await webServerData.MainWebStarted.Task;
             var logger = webServerData.ServiceProvider.GetService<ILogger<Startup>>();
-            var pluginService = webServerData.ServiceProvider.GetRequiredService<IPluginService>();
-            var plugin = pluginService.GetPluginDescriptorBySystemName<IPlugin>("Misc.PersonalCloud", LoadPluginsMode.InstalledOnly);
+            PluginDescriptor plugin = null;
+            try
+            {
+                var pluginService = webServerData.ServiceProvider.GetRequiredService<IPluginService>();
+                plugin = pluginService.GetPluginDescriptorBySystemName<IPlugin>("Misc.PersonalCloud", LoadPluginsMode.InstalledOnly);
+            }
+            catch (Exception ex)
+            {
+                // IStoreContext is not available on first run (database is not initialized)
+                logger.LogWarning(ex, "Skip running Signal Server");
+            }
             if (plugin != null)
             {
                 logger?.LogInformation("Start Signal Server");
@@ -56,10 +67,13 @@ namespace Nop.Web
         {
             return Host.CreateDefaultBuilder()
                 .UseServiceProviderFactory(new AutofacServiceProviderFactory())
+                .ConfigureAppConfiguration((ctx, bld) =>
+                {
+                    bld.AddJsonFile("SignalServer.json");
+                })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder
-                        .UseUrls("http://*:5002", "https://*:5003")
                         .UseStartup<SignalServerStartup>();
                 })
                 .ConfigureServices(services =>
